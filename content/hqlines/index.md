@@ -1,6 +1,6 @@
 +++
 title = "Is it easy to draw a line"
-date = 2020-08-26
+date = 2020-09-02
 +++
 <!-- ![lines_square](lines_square.jpg) -->
 ### Wait what?
