@@ -20,6 +20,8 @@ jobs:
         config: '.markdownlint.json'
     - name: Install Zola
       run: curl -L ${BASE_URL}/${VERS}/zola-${VERS}-${ARCH}.tar.gz | tar -xz
+    - run: git submodule sync --recursive
+    - run: git submodule update --init --recursive
     - run: ./zola --version
     - run: ./zola build
     - name: Deploy
