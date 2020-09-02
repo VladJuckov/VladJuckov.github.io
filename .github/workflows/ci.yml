@@ -31,3 +31,5 @@ jobs:
         build_dir: public
         target_branch: gh-pages
         keep_history: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
