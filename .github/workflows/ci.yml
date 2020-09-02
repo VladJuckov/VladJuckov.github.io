@@ -10,7 +10,7 @@ jobs:
       VERS: v0.10.1
       ARCH: x86_64-unknown-linux-gnu
       # https://github.com/marketplace/actions/github-pages#warning-limitation
-      GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - uses: actions/checkout@v2
     - name: Lint
