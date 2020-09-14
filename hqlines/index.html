@@ -38,12 +38,15 @@
   <h1><a href="https:&#x2F;&#x2F;vladjuckov.github.io&#x2F;hqlines&#x2F;">Is it easy to draw a line</a></h1>
 
   <div class="post-content"><!-- ![lines_square](lines_square.jpg) -->
+<p><a href="https://pum-purum-pum-pum.github.io/lines/">Demo</a> Note for some reason on web
+it's not that good as on desktop. I also had to turn off browsers AA manually.
+<a href="https://github.com/pum-purum-pum-pum/Lines">Source code</a></p>
 <h3 id="wait-what">Wait what?</h3>
 <p>If you just draw rectangle in OpenGL you'll
 notice that the edges look like a pixel ladder.
 You may try to fix that with MSAA but it's still poor quality.
 Also one may want to draw the line not as a rectangle but as a rounded rectangle.</p>
-<p><img src="https://vladjuckov.github.io/hqlines/line.gif" alt="text" /></p>
+<p><img src="https://vladjuckov.github.io/hqlines/line.gif" alt="line" /></p>
 <p><a href="https://www.displaydaily.com/?view=article&amp;id=102:antialiasing&amp;catid=118:word-of-the-week">picture reference</a></p>
 <h3 id="normal-width">Normal + width</h3>
 <p>To draw just rectangle lines one can use normal to a segment as a vertex attribute.
@@ -51,7 +54,7 @@ This approach is well described <a href="https://blog.mapbox.com/drawing-antiali
 <h3 id="sdf">SDF</h3>
 <p>The other way of drawing high quality segments is using Signed Distance Field (SDF).
 We can create smooth edges by calculating the distance to it.
-Also, with SDF we can creating a nice rounded segment's ends.</p>
+Also, with SDF we can create a nice rounded segment's ends.</p>
 <p>We also want to draw polygonal chains.
 Unfortunately, we can't just draw these segments on the top of each other,
 because of transparent edges that will overlap and create ugly blending effect.
@@ -217,7 +220,7 @@ Maybe one can solve it with rendering to a texture or some nonstandard blending.
 But we will just draw only one segment edge as shown in this picture
 <img src="https://vladjuckov.github.io/hqlines/overlap.jpg" alt="overlap" />
 (note that each line has a different color only for demonstration.
-However, we can draw a red line on the top of the yellow.)</p>
+We can draw a red line on the top of the yellow. Or clip red line instead of yellow)</p>
 <p>We have <code>segment type</code> which is a float variable but encodes discrete values
 (Maybe I'm missing something but it's not clear how to pass int variables,
 maybe it's just version, haven't tried):</p>
@@ -233,18 +236,30 @@ maybe it's just version, haven't tried):</p>
     discard;
 }
 </span></pre>
+<p>We draw a polygonal chain like this:</p>
+<pre style="background-color:#002b36;">
+<span style="color:#859900;">for</span><span style="color:#839496;"> i </span><span style="color:#859900;">in </span><span style="color:#6c71c4;">0</span><span style="color:#859900;">..</span><span style="color:#839496;">stringline_num {
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> point </span><span style="color:#859900;">= vec2</span><span style="color:#839496;">(qrand::gen_range(</span><span style="color:#859900;">-</span><span style="color:#6c71c4;">100.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">100.</span><span style="color:#839496;">), qrand::gen_range(</span><span style="color:#859900;">-</span><span style="color:#6c71c4;">100.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">100.</span><span style="color:#839496;">));
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> segment_type </span><span style="color:#859900;">= match</span><span style="color:#839496;"> i {
+        </span><span style="color:#6c71c4;">0 </span><span style="color:#859900;">=&gt; </span><span style="color:#839496;">SegmentType::All,
+        </span><span style="color:#859900;">_ =&gt; </span><span style="color:#839496;">SegmentType::NoFirst,
+    };
+    lines.</span><span style="color:#859900;">add</span><span style="color:#839496;">(Line::new(segment_type, prev, point, </span><span style="color:#cb4b16;">THICKNESS</span><span style="color:#839496;">, color));
+    prev </span><span style="color:#859900;">=</span><span style="color:#839496;"> point;
+}
+</span></pre>
 <p>This will produce cutting like a yellow line on the picture.</p>
 <p>Our end result will look like this nice monochromatic polygonal lines:
 <img src="https://vladjuckov.github.io/hqlines/random_lines.png" alt="random lines" /></p>
 <h3 id="bonus-drawing-maps">Bonus: Drawing maps</h3>
 <p>We can use our lib for example to draw the map.
-I've provided some OSM data here.
+I've provided some OSM data <a href="https://drive.google.com/file/d/16wjW3wh0f_nt9-J1ninXNTQwgeAVSawL/view?usp=sharing">here</a>.
 We just import all data that can be represented
 as segments and voila here is the map :)</p>
 <p><img src="https://vladjuckov.github.io/hqlines/map.gif" alt="map" /></p>
 </div>
 
-  <p class="meta">Posted on <span class="postdate">2020-09-02</span></p>
+  <p class="meta">Posted on <span class="postdate">2020-09-14</span></p>
 </article>
 
       </div>
