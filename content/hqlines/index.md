@@ -1,8 +1,12 @@
 +++
 title = "Is it easy to draw a line"
-date = 2020-09-02
+date = 2020-09-14
 +++
 <!-- ![lines_square](lines_square.jpg) -->
+
+[Demo](https://pum-purum-pum-pum.github.io/lines/) Note for some reason on web
+it's not that good as on desktop. I also had to turn off browsers AA manually.
+[Source code](https://github.com/pum-purum-pum-pum/Lines)
 
 ### Wait what?
 
@@ -11,7 +15,7 @@ notice that the edges look like a pixel ladder.
 You may try to fix that with MSAA but it's still poor quality.
 Also one may want to draw the line not as a rectangle but as a rounded rectangle.
 
-![text](line.gif)
+![line](line.gif)
 
 [picture reference](https://www.displaydaily.com/?view=article&id=102:antialiasing&catid=118:word-of-the-week)
 
@@ -24,7 +28,7 @@ This approach is well described [here](https://blog.mapbox.com/drawing-antialias
 
 The other way of drawing high quality segments is using Signed Distance Field (SDF).
 We can create smooth edges by calculating the distance to it.
-Also, with SDF we can creating a nice rounded segment's ends.
+Also, with SDF we can create a nice rounded segment's ends.
 
 We also want to draw polygonal chains.
 Unfortunately, we can't just draw these segments on the top of each other,
@@ -206,7 +210,7 @@ Maybe one can solve it with rendering to a texture or some nonstandard blending.
 But we will just draw only one segment edge as shown in this picture
 ![overlap](overlap.jpg)
 (note that each line has a different color only for demonstration.
-However, we can draw a red line on the top of the yellow.)
+We can draw a red line on the top of the yellow. Or clip red line instead of yellow)
 
 We have `segment type` which is a float variable but encodes discrete values
 (Maybe I'm missing something but it's not clear how to pass int variables,
@@ -224,6 +228,20 @@ if (abs(st - 1.) < 0.01 && local_position.y < -0.5) { // in SDF space
 }
 ```
 
+We draw a polygonal chain like this:
+
+```Rust
+for i in 0..stringline_num {
+    let point = vec2(qrand::gen_range(-100., 100.), qrand::gen_range(-100., 100.));
+    let segment_type = match i {
+        0 => SegmentType::All,
+        _ => SegmentType::NoFirst,
+    };
+    lines.add(Line::new(segment_type, prev, point, THICKNESS, color));
+    prev = point;
+}
+```
+
 This will produce cutting like a yellow line on the picture.
 
 Our end result will look like this nice monochromatic polygonal lines:
@@ -232,7 +250,7 @@ Our end result will look like this nice monochromatic polygonal lines:
 ### Bonus: Drawing maps
 
 We can use our lib for example to draw the map.
-I've provided some OSM data here.
+I've provided some OSM data [here](https://drive.google.com/file/d/16wjW3wh0f_nt9-J1ninXNTQwgeAVSawL/view?usp=sharing).
 We just import all data that can be represented
 as segments and voila here is the map :)
 
