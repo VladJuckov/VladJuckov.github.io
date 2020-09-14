@@ -6,6 +6,7 @@ date = 2020-09-14
 
 [Demo](https://pum-purum-pum-pum.github.io/lines/) Note for some reason on web
 it's not that good as on desktop. I also had to turn off browsers AA manually.
+
 [Source code](https://github.com/pum-purum-pum-pum/Lines)
 
 ### Wait what?
