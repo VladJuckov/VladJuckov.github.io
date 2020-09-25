@@ -17,11 +17,10 @@ You may try to fix that with MSAA but it's still poor quality.
 Also one may want to draw the line not as a rectangle but as a rounded rectangle.
 
 ![line](line.gif)
+[picture reference](https://www.displaydaily.com/?view=article&id=102:antialiasing&catid=118:word-of-the-week)
 
 I was doing for my game
 ![hex_strat](lines_hexstrat.png)
-
-[picture reference](https://www.displaydaily.com/?view=article&id=102:antialiasing&catid=118:word-of-the-week)
 
 ### Normal + width
 
