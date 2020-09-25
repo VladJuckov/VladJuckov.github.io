@@ -108,7 +108,7 @@ to draw million of antialiased high-quality lines.
 
 Here is the vertex shader code (sorry for the old glsl version):
 
-```GLSL
+```C
 #version 100
 precision lowp float;
 attribute vec2 pos;
@@ -154,7 +154,7 @@ and then pass required variables into the fragment shader
 
 Here is the fragment shader:
 
-```glsl
+```C
 #version 100
 precision lowp float;
 varying vec2 local_position;
