@@ -123,39 +123,39 @@ But it's convenient and fast enough
 to draw million of antialiased high-quality lines.</p>
 <p>Here is the vertex shader code (sorry for the old glsl version):</p>
 <pre style="background-color:#002b36;">
-<span style="color:#839496;">#version 100
-precision lowp float;
+<span style="color:#839496;">#version </span><span style="color:#6c71c4;">100</span><span style="color:#839496;">
+precision lowp </span><span style="color:#268bd2;">float</span><span style="color:#839496;">;
 attribute vec2 pos;
-attribute float segment_type;
+attribute </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> segment_type;
 attribute vec2 inst_pos;
-attribute float thickness;
+attribute </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> thickness;
 attribute vec2 dir;
 attribute vec3 color0;
 
 varying vec2 local_position;
 varying vec2 projected_position;
 varying vec2 ip;
-varying float th;
+varying </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> th;
 varying vec4 color;
-// segment type. Have to pass as float, but it is just enum
-varying float st;
+</span><span style="color:#586e75;">// segment type. Have to pass as float, but it is just enum
+</span><span style="color:#839496;">varying </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> st;
 varying vec2 dr;
 
 uniform mat4 mvp;
-void main() {
-    vec2 n = vec2(-dir.y, dir.x) / length(dir);
-    vec2 apos = pos.y * dir + pos.x * n * thickness;
-    vec4 new_pos = vec4(apos + inst_pos, 0.0, 1.0);
-    vec4 res_pos = mvp * new_pos;
-    gl_Position = res_pos;
+</span><span style="color:#268bd2;">void </span><span style="color:#b58900;">main</span><span style="color:#839496;">() {
+    vec2 n </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec2</span><span style="color:#839496;">(</span><span style="color:#657b83;">-</span><span style="color:#839496;">dir.</span><span style="color:#268bd2;">y</span><span style="color:#839496;">, dir.</span><span style="color:#268bd2;">x</span><span style="color:#839496;">) </span><span style="color:#657b83;">/ </span><span style="color:#268bd2;">length</span><span style="color:#839496;">(dir);
+    vec2 apos </span><span style="color:#657b83;">=</span><span style="color:#839496;"> pos.</span><span style="color:#268bd2;">y </span><span style="color:#859900;">*</span><span style="color:#839496;"> dir </span><span style="color:#657b83;">+</span><span style="color:#839496;"> pos.</span><span style="color:#268bd2;">x </span><span style="color:#859900;">*</span><span style="color:#839496;"> n </span><span style="color:#859900;">*</span><span style="color:#839496;"> thickness;
+    vec4 new_pos </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec4</span><span style="color:#839496;">(apos </span><span style="color:#657b83;">+</span><span style="color:#839496;"> inst_pos, </span><span style="color:#6c71c4;">0.0</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.0</span><span style="color:#839496;">);
+    vec4 res_pos </span><span style="color:#657b83;">=</span><span style="color:#839496;"> mvp </span><span style="color:#859900;">*</span><span style="color:#839496;"> new_pos;
+    gl_Position </span><span style="color:#657b83;">=</span><span style="color:#839496;"> res_pos;
 
-    st = segment_type;
-    local_position = pos;
-    projected_position = vec2(new_pos.x, new_pos.y);
-    ip = inst_pos;
-    dr = dir;
-    th = thickness;
-    color = vec4(color0, 0.5);
+    st </span><span style="color:#657b83;">=</span><span style="color:#839496;"> segment_type;
+    local_position </span><span style="color:#657b83;">=</span><span style="color:#839496;"> pos;
+    projected_position </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec2</span><span style="color:#839496;">(new_pos.</span><span style="color:#268bd2;">x</span><span style="color:#839496;">, new_pos.</span><span style="color:#268bd2;">y</span><span style="color:#839496;">);
+    ip </span><span style="color:#657b83;">=</span><span style="color:#839496;"> inst_pos;
+    dr </span><span style="color:#657b83;">=</span><span style="color:#839496;"> dir;
+    th </span><span style="color:#657b83;">=</span><span style="color:#839496;"> thickness;
+    color </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec4</span><span style="color:#839496;">(color0, </span><span style="color:#6c71c4;">0.5</span><span style="color:#839496;">);
 }
 </span></pre>
 <p>We just change the shape of our line according to parameters:</p>
@@ -166,49 +166,49 @@ void main() {
 <p>and then pass required variables into the fragment shader</p>
 <p>Here is the fragment shader:</p>
 <pre style="background-color:#002b36;">
-<span style="color:#839496;">#version 100
-precision lowp float;
+<span style="color:#839496;">#version </span><span style="color:#6c71c4;">100</span><span style="color:#839496;">
+precision lowp </span><span style="color:#268bd2;">float</span><span style="color:#839496;">;
 varying vec2 local_position;
 varying vec2 projected_position;
 varying vec2 ip;
-varying float th;
+varying </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> th;
 varying vec4 color;
-varying float st;
+varying </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> st;
 varying vec2 dr;
 
 uniform mat4 mvp;
-const lowp float aaborder = 0.00445;
+</span><span style="color:#859900;">const</span><span style="color:#839496;"> lowp </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> aaborder </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">0.00445</span><span style="color:#839496;">;
 
-float line_segment(in vec2 p, in vec2 a, in vec2 b) {
-    vec2 ba = b - a;
-    vec2 pa = p - a;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.);
-    return length(pa - h * ba);
+</span><span style="color:#268bd2;">float </span><span style="color:#b58900;">line_segment</span><span style="color:#839496;">(in vec2 </span><span style="color:#268bd2;">p</span><span style="color:#839496;">, in vec2 </span><span style="color:#268bd2;">a</span><span style="color:#839496;">, in vec2 </span><span style="color:#268bd2;">b</span><span style="color:#839496;">) {
+    vec2 ba </span><span style="color:#657b83;">=</span><span style="color:#839496;"> b </span><span style="color:#657b83;">-</span><span style="color:#839496;"> a;
+    vec2 pa </span><span style="color:#657b83;">=</span><span style="color:#839496;"> p </span><span style="color:#657b83;">-</span><span style="color:#839496;"> a;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> h </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">clamp</span><span style="color:#839496;">(</span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(pa, ba) </span><span style="color:#657b83;">/ </span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(ba, ba), </span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">);
+    </span><span style="color:#859900;">return </span><span style="color:#268bd2;">length</span><span style="color:#839496;">(pa </span><span style="color:#657b83;">-</span><span style="color:#839496;"> h </span><span style="color:#859900;">*</span><span style="color:#839496;"> ba);
 }
 
-void main() {
-    vec2 a = ip - dr  / 2.;
-    vec2 b = ip + dr / 2.;
-    float d = line_segment(projected_position, a, b) - th;
-    float scaled_border = aaborder / mvp[1][1];
-    float edge1 = -scaled_border;
-    float edge2 = 0.;
+</span><span style="color:#268bd2;">void </span><span style="color:#b58900;">main</span><span style="color:#839496;">() {
+    vec2 a </span><span style="color:#657b83;">=</span><span style="color:#839496;"> ip </span><span style="color:#657b83;">-</span><span style="color:#839496;"> dr  </span><span style="color:#657b83;">/ </span><span style="color:#6c71c4;">2.</span><span style="color:#839496;">;
+    vec2 b </span><span style="color:#657b83;">=</span><span style="color:#839496;"> ip </span><span style="color:#657b83;">+</span><span style="color:#839496;"> dr </span><span style="color:#657b83;">/ </span><span style="color:#6c71c4;">2.</span><span style="color:#839496;">;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> d </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">line_segment</span><span style="color:#839496;">(projected_position, a, b) </span><span style="color:#657b83;">-</span><span style="color:#839496;"> th;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> scaled_border </span><span style="color:#657b83;">=</span><span style="color:#839496;"> aaborder </span><span style="color:#657b83;">/</span><span style="color:#839496;"> mvp[</span><span style="color:#6c71c4;">1</span><span style="color:#839496;">][</span><span style="color:#6c71c4;">1</span><span style="color:#839496;">];
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> edge1 </span><span style="color:#657b83;">= -</span><span style="color:#839496;">scaled_border;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> edge2 </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">;
 
-    if (d &lt; 0.) {
-        float smooth = 1.;
-        if (abs(st - 1.) &lt; 0.01 &amp;&amp; local_position.y &lt; -0.5) { // in SDF space
-            discard;
-        } else if (abs(st - 2.) &lt; 0.01 &amp;&amp; local_position.y &gt; 0.5) {
+    </span><span style="color:#859900;">if </span><span style="color:#839496;">(d </span><span style="color:#657b83;">&lt; </span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">) {
+        </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> smooth </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">;
+        </span><span style="color:#859900;">if </span><span style="color:#839496;">(</span><span style="color:#859900;">abs</span><span style="color:#839496;">(st </span><span style="color:#657b83;">- </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">) </span><span style="color:#657b83;">&lt; </span><span style="color:#6c71c4;">0.01 </span><span style="color:#657b83;">&amp;&amp;</span><span style="color:#839496;"> local_position.</span><span style="color:#268bd2;">y </span><span style="color:#657b83;">&lt; -</span><span style="color:#6c71c4;">0.5</span><span style="color:#839496;">) { </span><span style="color:#586e75;">// in SDF space
+</span><span style="color:#839496;">            discard;
+        } </span><span style="color:#859900;">else if </span><span style="color:#839496;">(</span><span style="color:#859900;">abs</span><span style="color:#839496;">(st </span><span style="color:#657b83;">- </span><span style="color:#6c71c4;">2.</span><span style="color:#839496;">) </span><span style="color:#657b83;">&lt; </span><span style="color:#6c71c4;">0.01 </span><span style="color:#657b83;">&amp;&amp;</span><span style="color:#839496;"> local_position.</span><span style="color:#268bd2;">y </span><span style="color:#657b83;">&gt; </span><span style="color:#6c71c4;">0.5</span><span style="color:#839496;">) {
             discard;
         }
-        if (d &gt; edge1) {
-            smooth = 1. - smoothstep(edge1, edge2, d) + st - st;
+        </span><span style="color:#859900;">if </span><span style="color:#839496;">(d </span><span style="color:#657b83;">&gt;</span><span style="color:#839496;"> edge1) {
+            smooth </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">1. </span><span style="color:#657b83;">- </span><span style="color:#268bd2;">smoothstep</span><span style="color:#839496;">(edge1, edge2, d) </span><span style="color:#657b83;">+</span><span style="color:#839496;"> st </span><span style="color:#657b83;">-</span><span style="color:#839496;"> st;
         }
-        vec4 color = color;
-        color.a = smooth;
-        gl_FragColor = color;
-    } else {
-        gl_FragColor = vec4(color.xyz, 0.0);
+        vec4 color </span><span style="color:#657b83;">=</span><span style="color:#839496;"> color;
+        color.</span><span style="color:#268bd2;">a </span><span style="color:#657b83;">=</span><span style="color:#839496;"> smooth;
+        gl_FragColor </span><span style="color:#657b83;">=</span><span style="color:#839496;"> color;
+    } </span><span style="color:#859900;">else </span><span style="color:#839496;">{
+        gl_FragColor </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec4</span><span style="color:#839496;">(color.</span><span style="color:#268bd2;">xyz</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">0.0</span><span style="color:#839496;">);
     }
 }
 </span></pre>
