@@ -108,6 +108,7 @@ Here is the vertex shader code (sorry for the old glsl version):
 
 ```GLSL
 #version 100
+precision lowp float;
 attribute vec2 pos;
 attribute float segment_type;
 attribute vec2 inst_pos;
@@ -115,20 +116,21 @@ attribute float thickness;
 attribute vec2 dir;
 attribute vec3 color0;
 
-varying lowp vec2 local_position;
-varying lowp vec2 projected_position;
-varying lowp vec2 ip;
-varying lowp float th;
-varying lowp vec4 color;
-varying lowp float st;
-varying lowp vec2 dr;
+varying vec2 local_position;
+varying vec2 projected_position;
+varying vec2 ip;
+varying float th;
+varying vec4 color;
+// segment type. Have to pass as float, but it is just enum
+varying float st;
+varying vec2 dr;
 
 uniform mat4 mvp;
 void main() {
     vec2 n = vec2(-dir.y, dir.x) / length(dir);
     vec2 apos = pos.y * dir + pos.x * n * thickness;
     vec4 new_pos = vec4(apos + inst_pos, 0.0, 1.0);
-    lowp vec4 res_pos = mvp * new_pos;
+    vec4 res_pos = mvp * new_pos;
     gl_Position = res_pos;
 
     st = segment_type;
@@ -152,34 +154,35 @@ Here is the fragment shader:
 
 ```glsl
 #version 100
-varying lowp vec2 local_position;
-varying lowp vec2 projected_position;
-varying lowp vec2 ip;
-varying lowp float th;
-varying lowp vec4 color;
-varying lowp float st;
-varying lowp vec2 dr;
+precision lowp float;
+varying vec2 local_position;
+varying vec2 projected_position;
+varying vec2 ip;
+varying float th;
+varying vec4 color;
+varying float st;
+varying vec2 dr;
 
-uniform highp mat4 mvp;
-const lowp float aaborder = 0.00245;
+uniform mat4 mvp;
+const lowp float aaborder = 0.00445;
 
-lowp float line_segment(in lowp vec2 p, in lowp vec2 a, in lowp vec2 b) {
-    lowp vec2 ba = b - a;
-    lowp vec2 pa = p - a;
-    lowp float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.);
+float line_segment(in vec2 p, in vec2 a, in vec2 b) {
+    vec2 ba = b - a;
+    vec2 pa = p - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.);
     return length(pa - h * ba);
 }
 
 void main() {
-    lowp vec2 a = ip - dr  / 2.;
-    lowp vec2 b = ip + dr / 2.;
-    lowp float d = line_segment(projected_position, a, b) - th ;
-    lowp float scaled_border = aaborder / mvp[0][0];
-    lowp float edge1 = -scaled_border;
-    lowp float edge2 = 0.;
+    vec2 a = ip - dr  / 2.;
+    vec2 b = ip + dr / 2.;
+    float d = line_segment(projected_position, a, b) - th;
+    float scaled_border = aaborder / mvp[1][1];
+    float edge1 = -scaled_border;
+    float edge2 = 0.;
 
     if (d < 0.) {
-        lowp float smooth = 1.;
+        float smooth = 1.;
         if (abs(st - 1.) < 0.01 && local_position.y < -0.5) { // in SDF space
             discard;
         } else if (abs(st - 2.) < 0.01 && local_position.y > 0.5) {
@@ -188,7 +191,7 @@ void main() {
         if (d > edge1) {
             smooth = 1. - smoothstep(edge1, edge2, d) + st - st;
         }
-        lowp vec4 color = color;
+        vec4 color = color;
         color.a = smooth;
         gl_FragColor = color;
     } else {
