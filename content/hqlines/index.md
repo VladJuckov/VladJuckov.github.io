@@ -1,6 +1,6 @@
 +++
 title = "Is it easy to draw a line"
-date = 2020-09-14
+date = 2020-09-26
 +++
 <!-- ![lines_square](lines_square.jpg) -->
 
@@ -31,13 +31,15 @@ The other way of drawing high quality segments is using Signed Distance Field (S
 We can create smooth edges by calculating the distance to it.
 Also, with SDF we can create a nice rounded segment's ends.
 
-We also want to draw polygonal chains.
+We also can use that for drawing polygonal chains.
+(correct me if there is simpler term for this).
 Unfortunately, we can't just draw these segments on the top of each other,
 because of transparent edges that will overlap and create ugly blending effect.
 Or if the line itself is transparent we will just see overlaps.
 It can be solved with rendering to texture for example.
 
-We will only consider opaque lines.
+We will only consider opaque polygona chains next.
+(again we can render to texture and then do transparent).
 
 [Here](https://www.shadertoy.com/view/Wlfyzl)
 is the shader we will use for the segment's SDF.
@@ -54,7 +56,7 @@ float line_segment(in vec2 p, in vec2 a, in vec2 b) {
 lowp float distance = line_segment(pp, a, b) - thickness;
 ```
 
-As you can see- in fragment shader we would need segment's ends and thickness.
+As you can see in fragment shader we would need segment's ends and thickness.
 That's why we need to pass these parameters as vertex attributes in the vertex
 shader and then into fragment shader.
 There are two ways that come to my head to do this:
