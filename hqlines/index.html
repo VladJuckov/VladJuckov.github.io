@@ -55,7 +55,8 @@ Also one may want to draw the line not as a rectangle but as a rounded rectangle
 This approach is well described <a href="https://blog.mapbox.com/drawing-antialiased-lines-with-opengl-8766f34192dc">here</a></p>
 <h3 id="sdf">SDF</h3>
 <p>The other way of drawing high quality segments is using Signed Distance Field (SDF).
-We can create smooth edges by calculating the distance to it.
+We can create smooth edges by calculating the distance to it
+(we assume here that there is no thickness of the line).
 Also, with SDF we can create a nice rounded segment's ends.</p>
 <p>We also can use that for drawing polygonal chains.
 (correct me if there is simpler term for this).
@@ -63,7 +64,7 @@ Unfortunately, we can't just draw these segments on the top of each other,
 because of transparent edges that will overlap and create ugly blending effect.
 Or if the line itself is transparent we will just see overlaps.
 It can be solved with rendering to texture for example.</p>
-<p>We will only consider opaque polygona chains next.
+<p>We will only consider opaque polygonal chains next.
 (again we can render to texture and then do transparent).</p>
 <p><a href="https://www.shadertoy.com/view/Wlfyzl">Here</a>
 is the shader we will use for the segment's SDF.</p>
@@ -78,8 +79,8 @@ is the shader we will use for the segment's SDF.</p>
 </span><span style="color:#586e75;">// later used like
 </span><span style="color:#839496;">lowp float distance </span><span style="color:#859900;">= line_segment</span><span style="color:#839496;">(pp, a, b) </span><span style="color:#859900;">-</span><span style="color:#839496;"> thickness;
 </span></pre>
-<p>As you can see in fragment shader we would need segment's ends and thickness.
-That's why we need to pass these parameters as vertex attributes in the vertex
+<p>As you can see in fragment shader we need to have segment's ends and thickness.
+We just pass these parameters as vertex attributes in the vertex
 shader and then into fragment shader.
 There are two ways that come to my head to do this:</p>
 <ol>
@@ -229,17 +230,17 @@ But we will just draw only one segment edge as shown in this picture
 (note that each line has a different color only for demonstration.
 We can draw a red line on the top of the yellow. Or clip red line instead of yellow)</p>
 <p>We have <code>segment type</code> which is a float variable but encodes discrete values
-(Maybe I'm missing something but it's not clear how to pass int variables,
-maybe it's just version, haven't tried):</p>
+(Maybe I'm missing something
+but it's not clear for me how to pass int variables :)):</p>
 <ol start="0">
 <li>Just draw regular segment</li>
 <li>Cut the first end of the segment</li>
 <li>Cut the second end of the segment</li>
 </ol>
 <pre style="background-color:#002b36;">
-<span style="color:#839496;">if (abs(st - 1.) &lt; 0.01 &amp;&amp; local_position.y &lt; -0.5) { // in SDF space
-    discard;
-} else if (abs(st - 2.) &lt; 0.01 &amp;&amp; local_position.y &gt; 0.5) {
+<span style="color:#859900;">if </span><span style="color:#839496;">(</span><span style="color:#859900;">abs</span><span style="color:#839496;">(st </span><span style="color:#657b83;">- </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">) </span><span style="color:#657b83;">&lt; </span><span style="color:#6c71c4;">0.01 </span><span style="color:#657b83;">&amp;&amp;</span><span style="color:#839496;"> local_position.</span><span style="color:#268bd2;">y </span><span style="color:#657b83;">&lt; -</span><span style="color:#6c71c4;">0.5</span><span style="color:#839496;">) { </span><span style="color:#586e75;">// in SDF space
+</span><span style="color:#839496;">    discard;
+} </span><span style="color:#859900;">else if </span><span style="color:#839496;">(</span><span style="color:#859900;">abs</span><span style="color:#839496;">(st </span><span style="color:#657b83;">- </span><span style="color:#6c71c4;">2.</span><span style="color:#839496;">) </span><span style="color:#657b83;">&lt; </span><span style="color:#6c71c4;">0.01 </span><span style="color:#657b83;">&amp;&amp;</span><span style="color:#839496;"> local_position.</span><span style="color:#268bd2;">y </span><span style="color:#657b83;">&gt; </span><span style="color:#6c71c4;">0.5</span><span style="color:#839496;">) {
     discard;
 }
 </span></pre>
