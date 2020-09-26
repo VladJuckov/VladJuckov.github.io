@@ -30,7 +30,8 @@ This approach is well described [here](https://blog.mapbox.com/drawing-antialias
 ### SDF
 
 The other way of drawing high quality segments is using Signed Distance Field (SDF).
-We can create smooth edges by calculating the distance to it.
+We can create smooth edges by calculating the distance to it
+(we assume here that there is no thickness of the line).
 Also, with SDF we can create a nice rounded segment's ends.
 
 We also can use that for drawing polygonal chains.
@@ -40,7 +41,7 @@ because of transparent edges that will overlap and create ugly blending effect.
 Or if the line itself is transparent we will just see overlaps.
 It can be solved with rendering to texture for example.
 
-We will only consider opaque polygona chains next.
+We will only consider opaque polygonal chains next.
 (again we can render to texture and then do transparent).
 
 [Here](https://www.shadertoy.com/view/Wlfyzl)
@@ -58,8 +59,8 @@ float line_segment(in vec2 p, in vec2 a, in vec2 b) {
 lowp float distance = line_segment(pp, a, b) - thickness;
 ```
 
-As you can see in fragment shader we would need segment's ends and thickness.
-That's why we need to pass these parameters as vertex attributes in the vertex
+As you can see in fragment shader we need to have segment's ends and thickness.
+We just pass these parameters as vertex attributes in the vertex
 shader and then into fragment shader.
 There are two ways that come to my head to do this:
 
@@ -221,14 +222,14 @@ But we will just draw only one segment edge as shown in this picture
 We can draw a red line on the top of the yellow. Or clip red line instead of yellow)
 
 We have `segment type` which is a float variable but encodes discrete values
-(Maybe I'm missing something but it's not clear how to pass int variables,
-maybe it's just version, haven't tried):
+(Maybe I'm missing something
+but it's not clear for me how to pass int variables :)):
 
 0) Just draw regular segment
 1) Cut the first end of the segment
 2) Cut the second end of the segment
 
-```glsl
+```C
 if (abs(st - 1.) < 0.01 && local_position.y < -0.5) { // in SDF space
     discard;
 } else if (abs(st - 2.) < 0.01 && local_position.y > 0.5) {
