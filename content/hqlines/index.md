@@ -21,7 +21,6 @@ Also one may want to draw the line not as a rectangle but as a rounded rectangle
 ![line](line.gif)
 [picture reference](https://www.displaydaily.com/?view=article&id=102:antialiasing&catid=118:word-of-the-week)
 
-
 ### Normal + width
 
 To draw just rectangle lines one can use normal to a segment as a vertex attribute.
