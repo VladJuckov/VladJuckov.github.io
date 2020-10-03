@@ -38,23 +38,25 @@
   <h1><a href="https:&#x2F;&#x2F;vladjuckov.github.io&#x2F;hqlines&#x2F;">Is it easy to draw a line</a></h1>
 
   <div class="post-content"><!-- ![lines_square](lines_square.jpg) -->
-<p><a href="https://pum-purum-pum-pum.github.io/lines/">Demo</a> Note for some reason on web
-it's not that good as on desktop. I also had to turn off browsers AA manually.</p>
+<p><a href="https://pum-purum-pum-pum.github.io/lines/">Demo</a>
+Note that for some reason on the web
+it's not that good as on the desktop (mb I'll write another note later).
+I also had to turn off browser's AA manually.</p>
 <p><a href="https://github.com/pum-purum-pum-pum/Lines">Source code</a></p>
 <h3 id="wait-what">Wait what?</h3>
 <p>If you just draw rectangle in OpenGL you'll
 notice that the edges look like a pixel ladder.
-You may try to fix that with MSAA but it's still poor quality.
+You may try to fix that with MSAA but its still will be poor quality.
 Also one may want to draw the line not as a rectangle but as a rounded rectangle.</p>
 <p><img src="https://vladjuckov.github.io/hqlines/line.gif" alt="line" />
 <a href="https://www.displaydaily.com/?view=article&amp;id=102:antialiasing&amp;catid=118:word-of-the-week">picture reference</a></p>
-<p>I was doing for my game
-<img src="https://vladjuckov.github.io/hqlines/lines_hexstrat.png" alt="hex_strat" /></p>
 <h3 id="normal-width">Normal + width</h3>
 <p>To draw just rectangle lines one can use normal to a segment as a vertex attribute.
 This approach is well described <a href="https://blog.mapbox.com/drawing-antialiased-lines-with-opengl-8766f34192dc">here</a></p>
 <h3 id="sdf">SDF</h3>
 <p>The other way of drawing high quality segments is using Signed Distance Field (SDF).
+That is what I'm using in my game
+<img src="https://vladjuckov.github.io/hqlines/lines_hexstrat.png" alt="hex_strat" />
 We can create smooth edges by calculating the distance to it
 (we assume here that there is no thickness of the line).
 Also, with SDF we can create a nice rounded segment's ends.</p>
@@ -65,7 +67,7 @@ because of transparent edges that will overlap and create ugly blending effect.
 Or if the line itself is transparent we will just see overlaps.
 It can be solved with rendering to texture for example.</p>
 <p>We will only consider opaque polygonal chains next.
-(again we can render to texture and then do transparent).</p>
+(again we can render to texture and then do transparent chains).</p>
 <p><a href="https://www.shadertoy.com/view/Wlfyzl">Here</a>
 is the shader we will use for the segment's SDF.</p>
 <pre style="background-color:#002b36;">
@@ -120,8 +122,9 @@ these parameters per line via instancing.</li>
     }
 }
 </span></pre><h3 id="shaders">Shaders</h3>
-<p>I'm not sure if the second is faster (since the instance is only two triangles --
-it's a small overhead).
+<p>I'm not sure if the second way is faster
+(since the instance is only two triangles --
+the overhead is small).
 But it's convenient and fast enough
 to draw million of antialiased high-quality lines.</p>
 <p>Here is the vertex shader code (sorry for the old glsl version):</p>
@@ -161,7 +164,7 @@ uniform mat4 mvp;
     color </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec4</span><span style="color:#839496;">(color0, </span><span style="color:#6c71c4;">0.5</span><span style="color:#839496;">);
 }
 </span></pre>
-<p>We just change the shape of our line according to parameters:</p>
+<p>We just change the shape of our line according to these parameters:</p>
 <ul>
 <li>dir: segment direction</li>
 <li>thickness: thickness of the line</li>
@@ -221,7 +224,8 @@ Then we calculate the distance to the borders with our line SDF function.
 After that, we want to create a nice antialiased edge.
 We pass the distance smoothstep function between <code>edge1</code> and <code>edge2</code> and then
 pass the result value to the alpha channel of the result line's color.</p>
-<p>In order to draw monochromatic polygonal chains with multiple segments we can't
+<p>But what is the segment type (st)?
+In order to draw monochromatic polygonal chains with multiple segments we can't
 just draw segments with corners on the top of each other.
 Because if we do so then our smooth edges will overlap and blend with each other.
 Maybe one can solve it with rendering to a texture or some nonstandard blending.
@@ -231,7 +235,8 @@ But we will just draw only one segment edge as shown in this picture
 We can draw a red line on the top of the yellow. Or clip red line instead of yellow)</p>
 <p>We have <code>segment type</code> which is a float variable but encodes discrete values
 (Maybe I'm missing something
-but it's not clear for me how to pass int variables :)):</p>
+but it's not clear for me how to pass int variables into glsl shaders...
+at least for this glsl version:) ):</p>
 <ol start="0">
 <li>Just draw regular segment</li>
 <li>Cut the first end of the segment</li>
