@@ -4,8 +4,10 @@ date = 2020-09-26
 +++
 <!-- ![lines_square](lines_square.jpg) -->
 
-[Demo](https://pum-purum-pum-pum.github.io/lines/) Note for some reason on web
-it's not that good as on desktop. I also had to turn off browsers AA manually.
+[Demo](https://pum-purum-pum-pum.github.io/lines/)
+Note that for some reason on the web
+it's not that good as on the desktop (mb I'll write another note later).
+I also had to turn off browser's AA manually.
 
 [Source code](https://github.com/pum-purum-pum-pum/Lines)
 
@@ -13,14 +15,12 @@ it's not that good as on desktop. I also had to turn off browsers AA manually.
 
 If you just draw rectangle in OpenGL you'll
 notice that the edges look like a pixel ladder.
-You may try to fix that with MSAA but it's still poor quality.
+You may try to fix that with MSAA but its still will be poor quality.
 Also one may want to draw the line not as a rectangle but as a rounded rectangle.
 
 ![line](line.gif)
 [picture reference](https://www.displaydaily.com/?view=article&id=102:antialiasing&catid=118:word-of-the-week)
 
-I was doing for my game
-![hex_strat](lines_hexstrat.png)
 
 ### Normal + width
 
@@ -30,6 +30,8 @@ This approach is well described [here](https://blog.mapbox.com/drawing-antialias
 ### SDF
 
 The other way of drawing high quality segments is using Signed Distance Field (SDF).
+That is what I'm using in my game
+![hex_strat](lines_hexstrat.png)
 We can create smooth edges by calculating the distance to it
 (we assume here that there is no thickness of the line).
 Also, with SDF we can create a nice rounded segment's ends.
@@ -42,7 +44,7 @@ Or if the line itself is transparent we will just see overlaps.
 It can be solved with rendering to texture for example.
 
 We will only consider opaque polygonal chains next.
-(again we can render to texture and then do transparent).
+(again we can render to texture and then do transparent chains).
 
 [Here](https://www.shadertoy.com/view/Wlfyzl)
 is the shader we will use for the segment's SDF.
@@ -104,8 +106,9 @@ impl Line {
 
 ### Shaders
 
-I'm not sure if the second is faster (since the instance is only two triangles --
-it's a small overhead).
+I'm not sure if the second way is faster
+(since the instance is only two triangles --
+the overhead is small).
 But it's convenient and fast enough
 to draw million of antialiased high-quality lines.
 
@@ -148,7 +151,7 @@ void main() {
 }
 ```
 
-We just change the shape of our line according to parameters:
+We just change the shape of our line according to these parameters:
 
 - dir: segment direction
 - thickness: thickness of the line
@@ -212,6 +215,7 @@ After that, we want to create a nice antialiased edge.
 We pass the distance smoothstep function between `edge1` and `edge2` and then
 pass the result value to the alpha channel of the result line's color.
 
+But what is the segment type (st)?
 In order to draw monochromatic polygonal chains with multiple segments we can't
 just draw segments with corners on the top of each other.
 Because if we do so then our smooth edges will overlap and blend with each other.
@@ -223,7 +227,8 @@ We can draw a red line on the top of the yellow. Or clip red line instead of yel
 
 We have `segment type` which is a float variable but encodes discrete values
 (Maybe I'm missing something
-but it's not clear for me how to pass int variables :)):
+but it's not clear for me how to pass int variables into glsl shaders...
+at least for this glsl version:) ):
 
 0) Just draw regular segment
 1) Cut the first end of the segment
