@@ -31,10 +31,12 @@ Also, it gives local antialiasing for free.
 Consider quadratic Bezier curves.
 The idea is the same as for [rendering lines](https://vladjuckov.github.io/hqlines/).
 There are some differences, however:
+
 1) We use bezier SDF and hence we should pass all parameters
 for quadratic bezier curve in our shader --
 start/end point and control point.
 2) We should find a bounding box for each Bezier curve we render.
+
 The result should look like this:
 ![bounding boxes](bezier_bb.png)
 
@@ -247,4 +249,3 @@ impl QuadCurve {
 For cubics, one can use approximation algorithms and
 render quadratic Beziers instead. Se for example
 [Quadratic approximation](https://ttnghia.github.io/pdf/QuadraticApproximation.pdf)
-
