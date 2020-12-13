@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+    <!-- Enable responsiveness on mobile devices-->
+    <!-- viewport-fit=cover is to support iPhone X rounded corners and notch in landscape-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+
+    <title>Vlad Jukov&#x27;s blog</title>
+
+    <!-- CSS -->
+    
+    <link rel="stylesheet" href="https:&#x2F;&#x2F;vladjuckov.github.io&#x2F;colors-dark.css">
+    
+    
+
+    
+
+    
+    
+  </head>
+  <body>
+    <header id="header">
+      <h1><a href="https:&#x2F;&#x2F;vladjuckov.github.io&#x2F;">Vlad Jukov&#x27;s blog</a></h1>
+      <p>About graphics programming</p>
+    </header>
+    <div id="page">
+      <div id="sidebar">
+        
+          
+        
+      </div>
+      <div id="content">
+        
+<article class="post">
+  <h1><a href="https:&#x2F;&#x2F;vladjuckov.github.io&#x2F;beziers-sdf&#x2F;">Rendering bezier strokes with SDFs</a></h1>
+
+  <div class="post-content"><p><a href="https://pum-purum-pum-pum.github.io/bezier/">Demo</a>
+<a href="https://github.com/pum-purum-pum-pum/beziers">src</a></p>
+<h3 id="why-sdfs">Why SDFs</h3>
+<p>The idea is to avoid triangulating the curve. There are already methods like
+<a href="https://developer.nvidia.com/gpugems/gpugems3/part-iv-image-effects/chapter-25-rendering-vector-art-gpu">Loop-Blinn</a>.
+<img src="https://vladjuckov.github.io/beziers-sdf/loop_blinn.jpg" alt="Loop Blinn" />
+<a href="https://developer.nvidia.com/gpugems/gpugems3/part-iv-image-effects/chapter-25-rendering-vector-art-gpu">picture reference</a></p>
+<p>But unfortunately, these methods can't be easily
+extended for strokes in general case since the
+offset curve of for example quadratic bezier curve
+is not quadratic Bezier curve (it is polynomial of 6 degree).
+It could be easily seen for Bezier curve with
+extreme sharp angle (with extreme inflection).
+There are methods for approximating these curves
+near inflection points with smaller bezier curves but it
+requires some effort to implement such algorithms.
+If we just want to render bezier strokes --
+SDF seems to be the most simple way to do this.
+Also, it gives local antialiasing for free.</p>
+<h3 id="plan">Plan</h3>
+<p>Consider quadratic Bezier curves.
+The idea is the same as for <a href="https://vladjuckov.github.io/hqlines/">rendering lines</a>.
+There are some differences, however:</p>
+<ol>
+<li>We use bezier SDF and hence we should pass all parameters
+for quadratic bezier curve in our shader --
+start/end point and control point.</li>
+<li>We should find a bounding box for each Bezier curve we render.</li>
+</ol>
+<p>The result should look like this:
+<img src="https://vladjuckov.github.io/beziers-sdf/bezier_bb.png" alt="bounding boxes" /></p>
+<p>In this article, we'll not bother about what happens
+when curves overlap even at end points,
+The last issue was discussed in the previous
+article about
+<a href="https://vladjuckov.github.io/hqlines/">rendering lines</a>.</p>
+<p>The fragment shader is quite straightforward:</p>
+<pre style="background-color:#002b36;">
+<span style="color:#839496;"># version </span><span style="color:#6c71c4;">310</span><span style="color:#839496;"> es
+precision highp </span><span style="color:#268bd2;">float</span><span style="color:#839496;">;
+</span><span style="color:#586e75;">// start point
+</span><span style="color:#839496;">in vec2 af;
+</span><span style="color:#586e75;">// control point
+</span><span style="color:#839496;">in vec2 controlf;
+</span><span style="color:#586e75;">// end point
+</span><span style="color:#839496;">in vec2 cf;
+</span><span style="color:#586e75;">// current position in fragment shader
+</span><span style="color:#839496;">in vec2 posf;
+</span><span style="color:#586e75;">// thickness of the curve
+</span><span style="color:#839496;">in </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> thicknessf;
+
+out vec4 FragColor;
+
+</span><span style="color:#268bd2;">float </span><span style="color:#b58900;">dot2</span><span style="color:#839496;">( in vec2 </span><span style="color:#268bd2;">v </span><span style="color:#839496;">) { </span><span style="color:#859900;">return </span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(v,v); }
+
+</span><span style="color:#586e75;">// borrowed from here https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
+</span><span style="color:#268bd2;">float </span><span style="color:#b58900;">sdBezier</span><span style="color:#839496;">( in vec2 </span><span style="color:#268bd2;">pos</span><span style="color:#839496;">, in vec2 </span><span style="color:#268bd2;">A</span><span style="color:#839496;">, in vec2 </span><span style="color:#268bd2;">B</span><span style="color:#839496;">, in vec2 </span><span style="color:#268bd2;">C </span><span style="color:#839496;">)
+{
+    vec2 a </span><span style="color:#657b83;">=</span><span style="color:#839496;"> B </span><span style="color:#657b83;">-</span><span style="color:#839496;"> A;
+    vec2 b </span><span style="color:#657b83;">=</span><span style="color:#839496;"> A </span><span style="color:#657b83;">- </span><span style="color:#6c71c4;">2.0</span><span style="color:#859900;">*</span><span style="color:#839496;">B </span><span style="color:#657b83;">+</span><span style="color:#839496;"> C;
+    vec2 c </span><span style="color:#657b83;">=</span><span style="color:#839496;"> a </span><span style="color:#859900;">* </span><span style="color:#6c71c4;">2.0</span><span style="color:#839496;">;
+    vec2 d </span><span style="color:#657b83;">=</span><span style="color:#839496;"> A </span><span style="color:#657b83;">-</span><span style="color:#839496;"> pos;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> kk </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">1.0</span><span style="color:#657b83;">/</span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(b,b);
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> kx </span><span style="color:#657b83;">=</span><span style="color:#839496;"> kk </span><span style="color:#859900;">* </span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(a,b);
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> ky </span><span style="color:#657b83;">=</span><span style="color:#839496;"> kk </span><span style="color:#859900;">* </span><span style="color:#839496;">(</span><span style="color:#6c71c4;">2.0</span><span style="color:#859900;">*</span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(a,a)</span><span style="color:#657b83;">+</span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(d,b)) </span><span style="color:#657b83;">/ </span><span style="color:#6c71c4;">3.0</span><span style="color:#839496;">;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> kz </span><span style="color:#657b83;">=</span><span style="color:#839496;"> kk </span><span style="color:#859900;">* </span><span style="color:#268bd2;">dot</span><span style="color:#839496;">(d,a);
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> res </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">0.0</span><span style="color:#839496;">;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> p </span><span style="color:#657b83;">=</span><span style="color:#839496;"> ky </span><span style="color:#657b83;">-</span><span style="color:#839496;"> kx</span><span style="color:#859900;">*</span><span style="color:#839496;">kx;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> p3 </span><span style="color:#657b83;">=</span><span style="color:#839496;"> p</span><span style="color:#859900;">*</span><span style="color:#839496;">p</span><span style="color:#859900;">*</span><span style="color:#839496;">p;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> q </span><span style="color:#657b83;">=</span><span style="color:#839496;"> kx</span><span style="color:#859900;">*</span><span style="color:#839496;">(</span><span style="color:#6c71c4;">2.0</span><span style="color:#859900;">*</span><span style="color:#839496;">kx</span><span style="color:#859900;">*</span><span style="color:#839496;">kx</span><span style="color:#657b83;">-</span><span style="color:#6c71c4;">3.0</span><span style="color:#859900;">*</span><span style="color:#839496;">ky) </span><span style="color:#657b83;">+</span><span style="color:#839496;"> kz;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> h </span><span style="color:#657b83;">=</span><span style="color:#839496;"> q</span><span style="color:#859900;">*</span><span style="color:#839496;">q </span><span style="color:#657b83;">+ </span><span style="color:#6c71c4;">4.0</span><span style="color:#859900;">*</span><span style="color:#839496;">p3;
+    </span><span style="color:#859900;">if</span><span style="color:#839496;">( h </span><span style="color:#657b83;">&gt;= </span><span style="color:#6c71c4;">0.0</span><span style="color:#839496;">)
+    {
+        h </span><span style="color:#657b83;">= </span><span style="color:#859900;">sqrt</span><span style="color:#839496;">(h);
+        vec2 x </span><span style="color:#657b83;">= </span><span style="color:#839496;">(</span><span style="color:#268bd2;">vec2</span><span style="color:#839496;">(h,</span><span style="color:#657b83;">-</span><span style="color:#839496;">h)</span><span style="color:#657b83;">-</span><span style="color:#839496;">q)</span><span style="color:#657b83;">/</span><span style="color:#6c71c4;">2.0</span><span style="color:#839496;">;
+        vec2 uv </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">sign</span><span style="color:#839496;">(x)</span><span style="color:#859900;">*pow</span><span style="color:#839496;">(</span><span style="color:#859900;">abs</span><span style="color:#839496;">(x), </span><span style="color:#268bd2;">vec2</span><span style="color:#839496;">(</span><span style="color:#6c71c4;">1.0</span><span style="color:#657b83;">/</span><span style="color:#6c71c4;">3.0</span><span style="color:#839496;">));
+        </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> t </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">clamp</span><span style="color:#839496;">( uv.</span><span style="color:#268bd2;">x</span><span style="color:#657b83;">+</span><span style="color:#839496;">uv.</span><span style="color:#268bd2;">y</span><span style="color:#657b83;">-</span><span style="color:#839496;">kx, </span><span style="color:#6c71c4;">0.0</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.0 </span><span style="color:#839496;">);
+        res </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">dot2</span><span style="color:#839496;">(d </span><span style="color:#657b83;">+ </span><span style="color:#839496;">(c </span><span style="color:#657b83;">+</span><span style="color:#839496;"> b</span><span style="color:#859900;">*</span><span style="color:#839496;">t)</span><span style="color:#859900;">*</span><span style="color:#839496;">t);
+    }
+    </span><span style="color:#859900;">else
+    </span><span style="color:#839496;">{
+        </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> z </span><span style="color:#657b83;">= </span><span style="color:#859900;">sqrt</span><span style="color:#839496;">(</span><span style="color:#657b83;">-</span><span style="color:#839496;">p);
+        </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> v </span><span style="color:#657b83;">= </span><span style="color:#859900;">acos</span><span style="color:#839496;">( q</span><span style="color:#657b83;">/</span><span style="color:#839496;">(p</span><span style="color:#859900;">*</span><span style="color:#839496;">z</span><span style="color:#859900;">*</span><span style="color:#6c71c4;">2.0</span><span style="color:#839496;">) ) </span><span style="color:#657b83;">/ </span><span style="color:#6c71c4;">3.0</span><span style="color:#839496;">;
+        </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> m </span><span style="color:#657b83;">= </span><span style="color:#859900;">cos</span><span style="color:#839496;">(v);
+        </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> n </span><span style="color:#657b83;">= </span><span style="color:#859900;">sin</span><span style="color:#839496;">(v)</span><span style="color:#859900;">*</span><span style="color:#6c71c4;">1.732050808</span><span style="color:#839496;">;
+        vec3  t </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">clamp</span><span style="color:#839496;">(</span><span style="color:#268bd2;">vec3</span><span style="color:#839496;">(m</span><span style="color:#657b83;">+</span><span style="color:#839496;">m,</span><span style="color:#657b83;">-</span><span style="color:#839496;">n</span><span style="color:#657b83;">-</span><span style="color:#839496;">m,n</span><span style="color:#657b83;">-</span><span style="color:#839496;">m)</span><span style="color:#859900;">*</span><span style="color:#839496;">z</span><span style="color:#657b83;">-</span><span style="color:#839496;">kx,</span><span style="color:#6c71c4;">0.0</span><span style="color:#839496;">,</span><span style="color:#6c71c4;">1.0</span><span style="color:#839496;">);
+        res </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">min</span><span style="color:#839496;">( </span><span style="color:#268bd2;">dot2</span><span style="color:#839496;">(d</span><span style="color:#657b83;">+</span><span style="color:#839496;">(c</span><span style="color:#657b83;">+</span><span style="color:#839496;">b</span><span style="color:#859900;">*</span><span style="color:#839496;">t.</span><span style="color:#268bd2;">x</span><span style="color:#839496;">)</span><span style="color:#859900;">*</span><span style="color:#839496;">t.</span><span style="color:#268bd2;">x</span><span style="color:#839496;">),
+                   </span><span style="color:#268bd2;">dot2</span><span style="color:#839496;">(d</span><span style="color:#657b83;">+</span><span style="color:#839496;">(c</span><span style="color:#657b83;">+</span><span style="color:#839496;">b</span><span style="color:#859900;">*</span><span style="color:#839496;">t.</span><span style="color:#268bd2;">y</span><span style="color:#839496;">)</span><span style="color:#859900;">*</span><span style="color:#839496;">t.</span><span style="color:#268bd2;">y</span><span style="color:#839496;">) );
+        </span><span style="color:#586e75;">// the third root cannot be the closest
+        // res = min(res,dot2(d+(c+b*t.z)*t.z));
+    </span><span style="color:#839496;">}
+    </span><span style="color:#859900;">return sqrt</span><span style="color:#839496;">( res );
+}
+
+</span><span style="color:#268bd2;">void </span><span style="color:#b58900;">main</span><span style="color:#839496;">() {
+    vec4 color </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">vec4</span><span style="color:#839496;">(</span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">); </span><span style="color:#586e75;">// we can also make it as input attribute
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> d </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">sdBezier</span><span style="color:#839496;">(posf, af, controlf, cf) </span><span style="color:#657b83;">-</span><span style="color:#839496;"> thicknessf;
+    </span><span style="color:#586e75;">// bigger value -- more blury
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> smooth_amount </span><span style="color:#657b83;">= </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">;
+    </span><span style="color:#268bd2;">float</span><span style="color:#839496;"> s </span><span style="color:#657b83;">= </span><span style="color:#268bd2;">smoothstep</span><span style="color:#839496;">(</span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">, smooth_amount, </span><span style="color:#657b83;">-</span><span style="color:#839496;">d);
+    </span><span style="color:#859900;">if </span><span style="color:#839496;">(d </span><span style="color:#657b83;">&lt; </span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">) {
+        color.</span><span style="color:#268bd2;">a </span><span style="color:#657b83;">=</span><span style="color:#839496;"> s;
+    } </span><span style="color:#859900;">else </span><span style="color:#839496;">{
+        discard;
+    }
+    FragColor </span><span style="color:#657b83;">=</span><span style="color:#839496;"> color;
+}
+</span></pre>
+<p>I didn't do anything to support
+the camera as it was with lines.
+It could be easily added if you want.</p>
+<p>Let's address the second problem we have
+-- finding proper bounding boxes.
+Here is the Rust code for doing this:</p>
+<pre style="background-color:#002b36;">
+<span style="color:#586e75;">/// basically rotation matrix (f.e. see here https://matthew-brett.github.io/teaching/rotation_2d.html)
+///
+</span><span style="color:#859900;">pub </span><span style="color:#268bd2;">fn </span><span style="color:#b58900;">rot</span><span style="color:#839496;">(</span><span style="color:#268bd2;">point</span><span style="color:#839496;">: Vec2, </span><span style="color:#268bd2;">cosb</span><span style="color:#839496;">: </span><span style="color:#268bd2;">f32</span><span style="color:#839496;">, </span><span style="color:#268bd2;">sinb</span><span style="color:#839496;">: </span><span style="color:#268bd2;">f32</span><span style="color:#839496;">) -&gt; Vec2 {
+    </span><span style="color:#859900;">vec2</span><span style="color:#839496;">(
+        cosb </span><span style="color:#859900;">*</span><span style="color:#839496;"> point.x </span><span style="color:#859900;">-</span><span style="color:#839496;"> sinb </span><span style="color:#859900;">*</span><span style="color:#839496;"> point.y,
+        sinb </span><span style="color:#859900;">*</span><span style="color:#839496;"> point.x </span><span style="color:#859900;">+</span><span style="color:#839496;"> cosb </span><span style="color:#859900;">*</span><span style="color:#839496;"> point.y,
+    )
+}
+
+</span><span style="color:#586e75;">/// oriented are betwee two vectors (by definition det(|v1^T \n v2^T|))
+/// or more importantly for us: |v1| |v2| sin (alpha)
+</span><span style="color:#859900;">pub </span><span style="color:#268bd2;">fn </span><span style="color:#b58900;">wedge</span><span style="color:#839496;">(</span><span style="color:#268bd2;">v1</span><span style="color:#839496;">: Vec2, </span><span style="color:#268bd2;">v2</span><span style="color:#839496;">: Vec2) -&gt; </span><span style="color:#268bd2;">f32 </span><span style="color:#839496;">{
+    v1.x </span><span style="color:#859900;">*</span><span style="color:#839496;"> v2.y </span><span style="color:#859900;">-</span><span style="color:#839496;"> v1.y </span><span style="color:#859900;">*</span><span style="color:#839496;"> v2.x
+}
+
+#[</span><span style="color:#268bd2;">derive</span><span style="color:#839496;">(Copy, Clone, Debug, PartialEq)]
+#[</span><span style="color:#268bd2;">repr</span><span style="color:#839496;">(C)]
+</span><span style="color:#859900;">pub </span><span style="color:#268bd2;">struct </span><span style="color:#839496;">QuadCurve {
+    </span><span style="color:#859900;">pub </span><span style="color:#268bd2;">a</span><span style="color:#839496;">: Vec2,
+    </span><span style="color:#859900;">pub </span><span style="color:#268bd2;">control</span><span style="color:#839496;">: Vec2,
+    </span><span style="color:#859900;">pub </span><span style="color:#268bd2;">c</span><span style="color:#839496;">: Vec2,
+}
+
+</span><span style="color:#586e75;">/// basically https://www.iquilezles.org/www/articles/bezierbbox/bezierbbox.htm
+/// with extra rotation
+</span><span style="color:#268bd2;">fn </span><span style="color:#b58900;">optimal_bb</span><span style="color:#839496;">(</span><span style="color:#859900;">&amp;</span><span style="color:#268bd2;">self</span><span style="color:#839496;">, </span><span style="color:#268bd2;">width</span><span style="color:#839496;">: </span><span style="color:#268bd2;">f32</span><span style="color:#839496;">) -&gt; (Vec2, Vec2, Vec2, Vec2) {
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> dir </span><span style="color:#859900;">= </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.c </span><span style="color:#859900;">- </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.a;
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> ndir </span><span style="color:#859900;">=</span><span style="color:#839496;"> dir.</span><span style="color:#859900;">normalize</span><span style="color:#839496;">();
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> ox </span><span style="color:#859900;">= vec2</span><span style="color:#839496;">(</span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">);
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> sinb </span><span style="color:#859900;">= wedge</span><span style="color:#839496;">(ndir, ox);
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> cosb </span><span style="color:#859900;">= </span><span style="color:#839496;">(</span><span style="color:#268bd2;">self</span><span style="color:#839496;">.c </span><span style="color:#859900;">- </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.a).</span><span style="color:#859900;">normalize</span><span style="color:#839496;">().</span><span style="color:#859900;">dot</span><span style="color:#839496;">(ox);
+    </span><span style="color:#586e75;">// align with Ox axis
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> p0 </span><span style="color:#859900;">= </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.a; </span><span style="color:#586e75;">// start point stays the same
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> p0p1 </span><span style="color:#859900;">= </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.control </span><span style="color:#859900;">- </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.a;
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> p1 </span><span style="color:#859900;">=</span><span style="color:#839496;"> p0 </span><span style="color:#859900;">+ rot</span><span style="color:#839496;">(p0p1, cosb, sinb); </span><span style="color:#586e75;">// control points rotates
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> p2 </span><span style="color:#859900;">=</span><span style="color:#839496;"> p0 </span><span style="color:#859900;">+ vec2</span><span style="color:#839496;">(dir.</span><span style="color:#859900;">length</span><span style="color:#839496;">(), </span><span style="color:#6c71c4;">0.</span><span style="color:#839496;">); </span><span style="color:#586e75;">// end point is parralel to X axis
+
+    // calculation inflection point in this coordinates
+    // (see original article for explanation)
+    </span><span style="color:#268bd2;">let </span><span style="color:#859900;">mut</span><span style="color:#839496;"> mi </span><span style="color:#859900;">=</span><span style="color:#839496;"> p0.</span><span style="color:#859900;">min</span><span style="color:#839496;">(p2);
+    </span><span style="color:#268bd2;">let </span><span style="color:#859900;">mut</span><span style="color:#839496;"> ma </span><span style="color:#859900;">=</span><span style="color:#839496;"> p0.</span><span style="color:#859900;">max</span><span style="color:#839496;">(p2);
+    </span><span style="color:#859900;">if</span><span style="color:#839496;"> p1.x </span><span style="color:#859900;">&lt;</span><span style="color:#839496;"> mi.x </span><span style="color:#859900;">||</span><span style="color:#839496;"> p1.x </span><span style="color:#859900;">&gt;</span><span style="color:#839496;"> ma.x </span><span style="color:#859900;">||</span><span style="color:#839496;"> p1.y </span><span style="color:#859900;">&lt;</span><span style="color:#839496;"> mi.y </span><span style="color:#859900;">||</span><span style="color:#839496;"> p1.y </span><span style="color:#859900;">&gt;</span><span style="color:#839496;"> ma.y {
+        </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> t </span><span style="color:#859900;">= </span><span style="color:#839496;">(p0 </span><span style="color:#859900;">-</span><span style="color:#839496;"> p1) </span><span style="color:#859900;">/ </span><span style="color:#839496;">(p0 </span><span style="color:#859900;">- </span><span style="color:#6c71c4;">2. </span><span style="color:#859900;">*</span><span style="color:#839496;"> p1 </span><span style="color:#859900;">+</span><span style="color:#839496;"> p2);
+        </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> t </span><span style="color:#859900;">= vec2</span><span style="color:#839496;">(</span><span style="color:#859900;">clamp</span><span style="color:#839496;">(t.x), </span><span style="color:#859900;">clamp</span><span style="color:#839496;">(t.y));
+        </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> s </span><span style="color:#859900;">= vec2</span><span style="color:#839496;">(</span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1.</span><span style="color:#839496;">) </span><span style="color:#859900;">-</span><span style="color:#839496;"> t;
+        </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> q </span><span style="color:#859900;">=</span><span style="color:#839496;"> s </span><span style="color:#859900;">*</span><span style="color:#839496;"> s </span><span style="color:#859900;">*</span><span style="color:#839496;"> p0 </span><span style="color:#859900;">+ </span><span style="color:#6c71c4;">2.0 </span><span style="color:#859900;">*</span><span style="color:#839496;"> s </span><span style="color:#859900;">*</span><span style="color:#839496;"> t </span><span style="color:#859900;">*</span><span style="color:#839496;"> p1 </span><span style="color:#859900;">+</span><span style="color:#839496;"> t </span><span style="color:#859900;">*</span><span style="color:#839496;"> t </span><span style="color:#859900;">*</span><span style="color:#839496;"> p2;
+        mi </span><span style="color:#859900;">=</span><span style="color:#839496;"> mi.</span><span style="color:#859900;">min</span><span style="color:#839496;">(q);
+        ma </span><span style="color:#859900;">=</span><span style="color:#839496;"> ma.</span><span style="color:#859900;">max</span><span style="color:#839496;">(q);
+    }
+    </span><span style="color:#268bd2;">let </span><span style="color:#839496;">(mi, ma) </span><span style="color:#859900;">= bounding_box_frame</span><span style="color:#839496;">(mi, ma, width);
+    </span><span style="color:#586e75;">// now align back with bezier
+    // We simply rotate negative to previous angle: cos(-a) = cos(a), sin(-a) = -sin(a)
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> ma_rotated </span><span style="color:#859900;">=</span><span style="color:#839496;"> p0 </span><span style="color:#859900;">+ rot</span><span style="color:#839496;">(ma </span><span style="color:#859900;">-</span><span style="color:#839496;"> p0, cosb, </span><span style="color:#859900;">-</span><span style="color:#839496;">sinb);
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> mi_rotated </span><span style="color:#859900;">=</span><span style="color:#839496;"> p0 </span><span style="color:#859900;">+ rot</span><span style="color:#839496;">(mi </span><span style="color:#859900;">-</span><span style="color:#839496;"> p0, cosb, </span><span style="color:#859900;">-</span><span style="color:#839496;">sinb);
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> offset </span><span style="color:#859900;">=</span><span style="color:#839496;"> ndir.</span><span style="color:#859900;">dot</span><span style="color:#839496;">(mi_rotated </span><span style="color:#859900;">-</span><span style="color:#839496;"> ma_rotated) </span><span style="color:#859900;">*</span><span style="color:#839496;"> ndir;
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> b </span><span style="color:#859900;">=</span><span style="color:#839496;"> ma_rotated </span><span style="color:#859900;">+</span><span style="color:#839496;"> offset;
+    </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> d </span><span style="color:#859900;">=</span><span style="color:#839496;"> mi_rotated </span><span style="color:#859900;">-</span><span style="color:#839496;"> offset;
+    (mi_rotated, b, ma_rotated, d)
+}
+</span></pre>
+<p>It first rotates Bezier curve so that the line which
+connects the start and end points of the curve is parallel to X-axis.
+Then it calculates the extreme point(inflection point)
+of that curve and hence bounding box in a current rotated coordinate system.
+After that, we simply rotate the bounding box back.</p>
+<p>After that, we can simply pass it into the GPU pipeline
+(this is for simplicity and demo -- could be done in place or via iterator)</p>
+<pre style="background-color:#002b36;">
+<span style="color:#839496;">#[</span><span style="color:#268bd2;">derive</span><span style="color:#839496;">(Copy, Clone, Debug, PartialEq)]
+#[</span><span style="color:#268bd2;">repr</span><span style="color:#839496;">(C)]
+</span><span style="color:#859900;">pub </span><span style="color:#268bd2;">struct </span><span style="color:#839496;">QuadCurve {
+    </span><span style="color:#859900;">pub </span><span style="color:#268bd2;">a</span><span style="color:#839496;">: Vec2,
+    </span><span style="color:#859900;">pub </span><span style="color:#268bd2;">control</span><span style="color:#839496;">: Vec2,
+    </span><span style="color:#859900;">pub </span><span style="color:#268bd2;">c</span><span style="color:#839496;">: Vec2,
+}
+
+</span><span style="color:#859900;">...
+</span><span style="color:#268bd2;">impl </span><span style="color:#839496;">QuadCurve {
+</span><span style="color:#859900;">...
+    pub </span><span style="color:#268bd2;">fn </span><span style="color:#b58900;">vertices</span><span style="color:#839496;">(</span><span style="color:#859900;">&amp;</span><span style="color:#268bd2;">self</span><span style="color:#839496;">, </span><span style="color:#268bd2;">width</span><span style="color:#839496;">: </span><span style="color:#268bd2;">f32</span><span style="color:#839496;">) -&gt; (Vec&lt;Vertex&gt;, Vec&lt;</span><span style="color:#268bd2;">u16</span><span style="color:#839496;">&gt;) {
+        </span><span style="color:#268bd2;">let </span><span style="color:#839496;">(a, b, c, d) </span><span style="color:#859900;">= </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.</span><span style="color:#859900;">optimal_bb</span><span style="color:#839496;">(width);
+        </span><span style="color:#268bd2;">let</span><span style="color:#839496;"> indices </span><span style="color:#859900;">= </span><span style="color:#839496;">vec![</span><span style="color:#6c71c4;">0</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">1</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">2</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">0</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">2</span><span style="color:#839496;">, </span><span style="color:#6c71c4;">3</span><span style="color:#839496;">];
+        (
+            vec![
+                Vertex {
+                    position: a,
+                    curve: </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.</span><span style="color:#859900;">clone</span><span style="color:#839496;">(),
+                    thickness: width,
+                },
+                Vertex {
+                    position: b,
+                    curve: </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.</span><span style="color:#859900;">clone</span><span style="color:#839496;">(),
+                    thickness: width,
+                },
+                Vertex {
+                    position: c,
+                    curve: </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.</span><span style="color:#859900;">clone</span><span style="color:#839496;">(),
+                    thickness: width,
+                },
+                Vertex {
+                    position: d,
+                    curve: </span><span style="color:#268bd2;">self</span><span style="color:#839496;">.</span><span style="color:#859900;">clone</span><span style="color:#839496;">(),
+                    thickness: width,
+                },
+            ],
+            indices,
+        )
+    }
+}
+
+</span></pre><h3 id="cubics">Cubics</h3>
+<p>For cubics, one can use approximation algorithms and
+render quadratic Beziers instead. Se for example
+<a href="https://ttnghia.github.io/pdf/QuadraticApproximation.pdf">Quadratic approximation</a></p>
+</div>
+
+  <p class="meta">Posted on <span class="postdate">2020-12-13</span></p>
+</article>
+
+      </div>
+      <footer id="footer">
+        <p class="copyright">
+          
+            Powered by <a href="https://www.getzola.org/">Zola</a> and the
+            <a href="https://github.com/hulufei/solar-theme-zola">Solar</a>-theme.
+          
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>
